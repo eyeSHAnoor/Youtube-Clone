@@ -6,7 +6,19 @@ dotenv.config({
 });
 
 import connectDB from "./db/db.js";
-import express from "express";
-const app = express();
+import { app } from "./app.js";
 
-connectDB();
+connectDB()
+  .then(() => {
+    app.on("error", (err) => {
+      console.log("ERROR is : ", err);
+      throw err;
+    });
+
+    app.listen(process.env.PORT || 8000, () => {
+      console.log(`Server is running on port : ${process.env.PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.log("the errror is : ", err);
+  });
