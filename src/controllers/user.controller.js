@@ -3,7 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import User from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-
+import jwt from "jsonwebtoken";
 const generateAccessAndRefreshToken = async (userId) => {
   try {
     const user = await User.findById(userId);
@@ -18,6 +18,8 @@ const generateAccessAndRefreshToken = async (userId) => {
     throw new ApiError(500, "something went wrong while generationg token");
   }
 };
+///////////////////////////////////////////////
+//////////////////////////////////////////////////
 
 const registerUser = asyncHandler(async (req, res) => {
   // Get user details from frontend
@@ -90,7 +92,7 @@ const loginUser = asyncHandler(async (req, res) => {
   const { email, username, password } = req.body;
 
   //username or email
-  if (!username || !email) {
+  if (!username && !email) {
     throw new ApiError(400, "username or email is required");
   }
 
@@ -170,4 +172,60 @@ const logOutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "user logged out"));
 });
 
-export { registerUser, loginUser, logOutUser };
+/////////////////////////////////////////////////////
+
+const refreshAccesssToken = asyncHandler(async (req, res) => {
+  try {
+    const incomingReftoken = req.cookies.refreshToken || req.body.refreshToken;
+
+    if (!incomingReftoken) {
+      throw new ApiError(401, "Unauthorized Access");
+    }
+
+    // Verify the refresh token
+    const decodedToken = jwt.verify(
+      incomingReftoken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+    const user = await User.findById(decodedToken._id); // Correct usage
+
+    if (!user) {
+      throw new ApiError(401, "User not found");
+    }
+
+    if (incomingReftoken !== user.refreshToken) {
+      throw new ApiError(401, "Refresh token is expired or used");
+    }
+
+    // Generate new tokens
+    const { accessToken, refreshToken: newRefreshToken } =
+      await generateAccessAndRefreshToken(user._id);
+
+    // Set cookies and respond
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // Ensure secure flag is set based on environment
+    };
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
+      .json(
+        new ApiResponse(
+          200,
+          {
+            accessToken,
+            refreshToken: newRefreshToken,
+          },
+          "Access token refreshed successfully"
+        )
+      );
+  } catch (error) {
+    throw new ApiError(500, "Invalid refresh token or something went wrong");
+  }
+});
+
+///////////////////////////////////////////////////////
+
+export { registerUser, loginUser, logOutUser, refreshAccesssToken };
