@@ -42,15 +42,15 @@ router.route("/change-password").post(verifyJWT, changeCurrPassword);
 
 router.route("/get-user").get(verifyJWT, getCurrentUser);
 
-router.route("/account-setting").put(verifyJWT, updateAccountDetails);
+router.route("/account-setting").patch(verifyJWT, updateAccountDetails);
 
 router
   .route("/change-avatar")
-  .put(verifyJWT, upload.single("avatar"), updateAvatar);
+  .patch(verifyJWT, upload.single("avatar"), updateAvatar);
 
 router
   .route("/change-cover-image")
-  .put(verifyJWT, upload.single("coverImage"), updateCoverImage);
+  .patch(verifyJWT, upload.single("coverImage"), updateCoverImage);
 
 router.route("/userProfile/:username").get(getUserProfile);
 
