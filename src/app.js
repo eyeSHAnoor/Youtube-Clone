@@ -27,4 +27,8 @@ app.use("/api/v1/comments", commentRouter);
 
 import handlecheckRouter from "./routes/handlecheck.routes.js";
 app.use("/api/v1/handlecheck", handlecheckRouter);
+
+import likeRouter from "./routes/like.routes.js";
+app.use("/api/v1/likes", likeRouter);
+
 export { app };
