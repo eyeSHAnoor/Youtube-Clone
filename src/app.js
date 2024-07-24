@@ -25,4 +25,6 @@ app.use("/api/v1/videos", videoRouter);
 import commentRouter from "./routes/comment.routes.js";
 app.use("/api/v1/comments", commentRouter);
 
+import handlecheckRouter from "./routes/handlecheck.routes.js";
+app.use("/api/v1/handlecheck", handlecheckRouter);
 export { app };
