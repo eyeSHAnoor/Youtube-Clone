@@ -31,4 +31,7 @@ app.use("/api/v1/handlecheck", handlecheckRouter);
 import likeRouter from "./routes/like.routes.js";
 app.use("/api/v1/likes", likeRouter);
 
+import playlistRouter from "./routes/playlist.routes.js";
+app.use("/api/v1/playlist", playlistRouter);
+
 export { app };
