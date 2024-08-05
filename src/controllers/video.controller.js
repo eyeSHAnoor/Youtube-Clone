@@ -6,7 +6,9 @@ import User from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
-  const videos = await Video.find();
+  const videos = await Video.find()
+    .populate("owner", "username avatar Subscriber") // Populate owner field with username and avatar
+    .exec();
   if (!videos) {
     throw new ApiError(400, "The problem in fetching videos ");
   }
@@ -24,12 +26,7 @@ const publishVideo = asyncHandler(async (req, res) => {
     throw new ApiError(400, "give a title or description to video");
   }
 
-  //   const user = await User.findById(req.user._id);
-  //   if (!user) {
-  //     throw new ApiError(400, "You are unauthorized to playvideos");
-  //   }
-
-  const videoLocalPath = req.files?.videoFile?.[0].path;
+  const videoLocalPath = req.files?.video?.[0].path;
   const thumbnailLocalPath = req.files?.thumbnail?.[0].path;
 
   if (!thumbnailLocalPath || !videoLocalPath) {
@@ -40,6 +37,7 @@ const publishVideo = asyncHandler(async (req, res) => {
   const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
 
   const owner = req.user?._id;
+  console.log(videoFile);
 
   const video = await Video.create({
     title,
@@ -47,8 +45,8 @@ const publishVideo = asyncHandler(async (req, res) => {
     videoFile: videoFile.url,
     thumbnail: thumbnail.url,
     owner,
-    views,
-    duration: videoFile.duration,
+    views: views || 0,
+    duration: videoFile.duration || 0,
   });
 
   if (!video) {
@@ -182,6 +180,39 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, {}, "toggled"));
 });
 
+////////////////////////////////////////////////////////////
+
+const randomVideos = asyncHandler(async (req, res) => {
+  const count = parseInt(req.query.count) || 10;
+
+  // Perform the aggregation
+  const videos = await Video.aggregate([
+    { $sample: { size: count } }, // Get random documents
+  ]);
+
+  if (!videos) {
+    throw new Error("Error fetching random videos");
+  }
+
+  // Manually populate the 'owner' field
+  const populatedVideos = await Video.populate(videos, {
+    path: "owner",
+    select: "username avatar Subscriber",
+  });
+
+  console.log(populatedVideos);
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        populatedVideos,
+        "The recommended videos are available"
+      )
+    );
+});
+
 export {
   getAllVideos,
   publishVideo,
@@ -190,4 +221,5 @@ export {
   updateVideoInfo,
   deleteVideo,
   togglePublishStatus,
+  randomVideos,
 };

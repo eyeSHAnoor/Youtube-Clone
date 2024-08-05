@@ -8,6 +8,7 @@ app.use(
   cors({
     origin: process.env.CORS_ORIGIN,
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
@@ -36,4 +37,7 @@ app.use("/api/v1/playlist", playlistRouter);
 
 import tweetRouter from "./routes/tweet.routes.js";
 app.use("/api/v1/tweet", tweetRouter);
+
+import subscriptionRoutes from "./routes/subscription.routes.js";
+app.use("/api/v1/subscription", subscriptionRoutes);
 export { app };

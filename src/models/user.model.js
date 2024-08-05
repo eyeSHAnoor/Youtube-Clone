@@ -46,6 +46,18 @@ const userSchema = new mongoose.Schema(
     refreshToken: {
       type: String,
     },
+    Subscriber: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    Subscribed: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   {
     timestamps: true,

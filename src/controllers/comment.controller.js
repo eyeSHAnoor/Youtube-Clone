@@ -8,7 +8,13 @@ import Video from "../models/videoSchema.js";
 const addComment = asyncHandler(async (req, res) => {
   const { content } = req.body;
   const { videoId } = req.params;
-  const { userId } = req.user._id;
+  const userId = req.user._id;
+
+  // console.log(content, videoId, userId);
+
+  if (!userId) {
+    throw new ApiError(404, "not authorized");
+  }
 
   if (!content) {
     throw new ApiError(404, "content of comment is not given");
@@ -50,29 +56,40 @@ const getVideoComments = asyncHandler(async (req, res) => {
     ],
   };
 
-  // Use aggregation pipeline with aggregatePaginate
+  const objectId = new mongoose.Types.ObjectId(videoId);
 
-  const aggregate = Comment.aggregate({
-    $match: {
-      video: new mongoose.Types.ObjectId(videoId), // Ensure videoId is an ObjectId
+  const aggregate = Comment.aggregate([
+    {
+      $match: {
+        video: objectId,
+      },
     },
-  });
+    {
+      $lookup: {
+        from: "users", // Ensure the correct collection name is used
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+      },
+    },
+    { $unwind: "$owner" },
+    {
+      $project: {
+        content: 1,
+        createdAt: 1,
+        "owner.username": 1,
+        "owner.avatar": 1,
+      },
+    },
+  ]);
 
   const comments = await Comment.aggregatePaginate(aggregate, options);
 
   if (!comments || comments.docs.length === 0) {
-    throw new ApiError(404, "No comments were found");
+    res.status(200).json(new ApiResponse(200, {}, "No comments"));
   }
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        comments,
-        "All comments related to the particular video are here"
-      )
-    );
+  res.status(200).json(new ApiResponse(200, comments, "comments here"));
 });
 
 /////////////////////////////////////////////////////////////////////

@@ -5,6 +5,7 @@ import {
   getQueryVideos,
   getVideoById,
   publishVideo,
+  randomVideos,
   togglePublishStatus,
   updateVideoInfo,
 } from "../controllers/video.controller.js";
@@ -13,12 +14,13 @@ import { upload } from "../middlewares/multer.middleware.js";
 const router = Router();
 
 router.route("/get-public-videos").get(getAllVideos);
+router.route("/recommended").get(randomVideos);
 
 router.route("/upload-video").post(
   verifyJWT,
   upload.fields([
     {
-      name: "videoFile",
+      name: "video",
       maxCount: 1,
     },
     {
