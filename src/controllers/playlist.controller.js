@@ -20,7 +20,22 @@ const createPlaylist = asyncHandler(async (req, res) => {
 
   await playlist.save();
 
-  res.status(200).json(new ApiResponse(200, playlist, "playlist was created"));
+  const populatedPlaylist = await PlayList.findById(playlist._id)
+    .populate({
+      path: "video",
+      populate: {
+        path: "owner", // Assuming the video schema has an owner field
+        select: "name avatar", // Select fields to return for the video's owner
+      },
+    })
+    .populate({
+      path: "owner",
+      select: "name avatar", // Select fields to return for the playlist's owner
+    });
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, populatedPlaylist, "playlist was created"));
 });
 
 ///////////////////////////////////////////////////////////
@@ -51,9 +66,42 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
 
 ///////////////////////////////////////////////////////////////
 
+const getVideosStatus = asyncHandler(async (req, res) => {
+  const { videoId } = req.body;
+  const { playlistId } = req.params;
+
+  const isAdded = await PlayList.findOne({
+    _id: playlistId,
+    video: videoId,
+  });
+
+  if (isAdded) {
+    res
+      .status(200)
+      .json({ status: true, message: "Video is already in the playlist." });
+  } else {
+    res
+      .status(200)
+      .json({ status: false, message: "Video is not in the playlist." });
+  }
+});
+
+///////////////////////////////////////////////////////////////
+
 const getUserPlaylist = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
-  const playlist = await PlayList.find({ owner: userId }).populate("video");
+  const userId = req.user._id;
+  const playlist = await PlayList.find({ owner: userId })
+    .populate({
+      path: "video",
+      populate: {
+        path: "owner", // Populates the owner of the video
+        select: "username avatar Subscriber", // Select only the fields you need, e.g., avatar, name
+      },
+    })
+    .populate({
+      path: "owner",
+      select: "avatar", // Select only the avatar field from the owner
+    });
 
   if (!playlist) {
     throw new ApiError(404, "There is no playlist like that");
@@ -78,7 +126,18 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
     {
       new: true,
     }
-  ).populate("video");
+  )
+    .populate({
+      path: "video",
+      populate: {
+        path: "owner", // Populates the owner of the video
+        select: "username avatar Subscriber", // Select only the fields you need, e.g., avatar, name
+      },
+    })
+    .populate({
+      path: "owner",
+      select: "avatar", // Select only the avatar field from the owner
+    });
   if (!playlist) {
     throw new ApiError(404, "Problem in finding playlist");
   }
@@ -97,10 +156,12 @@ const deletePlaylist = asyncHandler(async (req, res) => {
 
   res.status(200).json(new ApiResponse(200, {}, "Playlist is deleted "));
 });
+
 export {
   createPlaylist,
   addVideoToPlaylist,
   getUserPlaylist,
   removeVideoFromPlaylist,
   deletePlaylist,
+  getVideosStatus,
 };

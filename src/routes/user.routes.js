@@ -1,7 +1,10 @@
 import { Router } from "express";
 import {
+  addToWatchHistory,
   changeCurrPassword,
   getCurrentUser,
+  getSubscribedVideos,
+  getUserId,
   getUserProfile,
   getwatchHistory,
   loginUser,
@@ -56,5 +59,10 @@ router
 router.route("/userProfile/:username").get(getUserProfile);
 
 router.route("/get-watch-history").get(verifyJWT, getwatchHistory);
+router.route("/subscribed/videos").get(verifyJWT, getSubscribedVideos);
+
+router.route("/add-watch-history/:videoId").patch(verifyJWT, addToWatchHistory);
+
+router.route("/userId").get(verifyJWT, getUserId);
 
 export default router;

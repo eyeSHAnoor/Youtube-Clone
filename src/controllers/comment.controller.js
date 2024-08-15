@@ -10,31 +10,41 @@ const addComment = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   const userId = req.user._id;
 
-  // console.log(content, videoId, userId);
-
+  // Validate inputs
   if (!userId) {
-    throw new ApiError(404, "not authorized");
+    throw new ApiError(401, "Not authorized");
   }
 
   if (!content) {
-    throw new ApiError(404, "content of comment is not given");
+    throw new ApiError(400, "Content of comment is not provided");
   }
 
   if (!videoId) {
-    throw new ApiError(404, "videoId must be passed in parameters");
+    throw new ApiError(400, "VideoId must be provided in parameters");
   }
 
+  // Create the comment
   const comment = await Comment.create({
     content,
     video: videoId,
     owner: userId,
   });
 
-  if (!comment) {
+  // Populate the owner field with username and avatar
+  const populatedComment = await Comment.findById(comment._id).populate({
+    path: "owner",
+    select: "username avatar", // Specify fields to populate
+  });
+
+  if (!populatedComment) {
     throw new ApiError(500, "Error in creating comment");
   }
 
-  res.status(200).json(new ApiResponse(200, comment, "comment is public"));
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, populatedComment, "Comment created successfully")
+    );
 });
 
 //////////////////////////////////////////////////////////////
@@ -51,7 +61,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
     populate: [
       {
         path: "owner",
-        select: "username avatar",
+        select: "username avatar id",
       },
     ],
   };
@@ -79,6 +89,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
         createdAt: 1,
         "owner.username": 1,
         "owner.avatar": 1,
+        "owner._id": 1,
       },
     },
   ]);
@@ -96,7 +107,21 @@ const getVideoComments = asyncHandler(async (req, res) => {
 
 const deleteComment = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
-  await Comment.findByIdAndDelete(commentId);
+  const userId = req.user._id;
+
+  if (!userId) {
+    throw new ApiError(400, "Unauthorized");
+  }
+
+  // Find the comment and delete it
+  const comment = await Comment.findOneAndDelete({
+    _id: commentId,
+    owner: new mongoose.Types.ObjectId(userId),
+  });
+
+  if (!comment) {
+    throw new ApiError(404, "Comment not found or not authorized to delete");
+  }
 
   res.status(200).json(new ApiResponse(200, {}, "Comment is deleted"));
 });

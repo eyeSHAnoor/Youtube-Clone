@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import User from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import mongoose from "mongoose";
 
 const getAllVideos = asyncHandler(async (req, res) => {
   const videos = await Video.find()
@@ -80,6 +81,7 @@ const getQueryVideos = asyncHandler(async (req, res) => {
   };
 
   const videos = await Video.find(query)
+    .populate("owner", "avatar username Subscriber")
     .sort(sort)
     .skip((pageNum - 1) * limitNum)
     .limit(limitNum);
@@ -213,6 +215,65 @@ const randomVideos = asyncHandler(async (req, res) => {
     );
 });
 
+///////////////////////////////////////////////////////////////
+
+const personalVideo = asyncHandler(async (req, res) => {
+  const user = req.user;
+
+  console.log(user);
+
+  const videos = await Video.find({
+    owner: new mongoose.Types.ObjectId(user._id),
+  })
+    .populate("owner", "username avatar Subscriber") // Populate owner field with username and avatar
+    .exec();
+
+  if (!videos) {
+    throw new ApiError(500, "error in fetching videos");
+  }
+  console.log(videos);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, videos, "Your personal videos")); // Don't forget to send a response back to the client
+});
+
+////////////////////////////////////////////////////////////////////
+
+const getUserVideos = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  const videos = await Video.find({ owner: userId }).populate(
+    "owner",
+    "username email Subscriber avatar"
+  ); // Adjust the fields you want to populate
+
+  if (!videos) {
+    return new ApiError(500, "error in fetching videos");
+  }
+
+  res.status(200).json(new ApiResponse(200, videos, "The videos of user"));
+});
+
+//////////////////////////////////////////////////////////////////////////
+
+const viewsOfVideo = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+
+  // Increment the views count
+  const updatedVideo = await Video.findByIdAndUpdate(
+    videoId,
+    { $inc: { views: 1 } },
+    { new: true } // Return the updated document
+  ).select("views");
+
+  if (!updatedVideo) {
+    return new ApiError(404, "Video not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedVideo, "views are i incrimented"));
+});
 export {
   getAllVideos,
   publishVideo,
@@ -222,4 +283,7 @@ export {
   deleteVideo,
   togglePublishStatus,
   randomVideos,
+  personalVideo,
+  getUserVideos,
+  viewsOfVideo,
 };

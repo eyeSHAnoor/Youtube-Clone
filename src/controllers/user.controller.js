@@ -1,10 +1,12 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import User from "../models/user.model.js";
+import Video from "../models/videoSchema.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import { populate } from "dotenv";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -31,7 +33,19 @@ const registerUser = asyncHandler(async (req, res) => {
   if (
     [username, fullname, email, password].some((field) => field?.trim() === "")
   ) {
-    throw new ApiError(400, "Full name is required");
+    throw new ApiError(400, "Fullname, email , username or avatar is required");
+  }
+
+  // Check if email already exists
+  const emailExists = await User.findOne({ email });
+  if (emailExists) {
+    return res.status(400).json({ message: "Email is already in use." });
+  }
+
+  // Check if username already exists
+  const usernameExists = await User.findOne({ username });
+  if (usernameExists) {
+    return res.status(400).json({ message: "Username is already in use." });
   }
 
   // Check if user already exists: username, email
@@ -419,49 +433,98 @@ const getUserProfile = asyncHandler(async (req, res) => {
 ////////////////////////////////////////////////////////////
 
 const getwatchHistory = asyncHandler(async (req, res) => {
-  const user = await User.aggregate([
-    {
-      $match: {
-        _id: new mongoose.Types.ObjectId(req.user._id),
+  const userId = req.user._id;
+
+  if (!userId) {
+    throw new ApiError(400, "Unauthorized");
+  }
+
+  const user = await User.findById(userId)
+    .populate({
+      path: "watchHistory",
+      populate: {
+        path: "owner",
+        select: "avatar username Subscriber",
       },
-    },
-    {
-      $lookup: {
-        from: "videos",
-        localField: "watchHistory",
-        foreignField: "_id",
-        as: "watchHistory",
-        pipeline: [
-          {
-            $lookup: {
-              from: "users",
-              localField: "owner",
-              foreignField: "_id",
-              as: "owner",
-              pipeline: {
-                $project: {
-                  fullname: 1,
-                  username: 1,
-                  avatar: 1,
-                },
-              },
-            },
-          },
-          {
-            $add: {
-              owner: {
-                $first: "$owner",
-              },
-            },
-          },
-        ],
-      },
-    },
-  ]);
+    })
+    .select("watchHistory");
 
   return res
     .status(200)
-    .ApiResponse(200, user[0].watchHistory, "watch History fwtched from user");
+    .json(new ApiResponse(200, user, "watch History fwtched from user"));
+});
+
+//////////////////////////////////////////////////////////////
+
+const getUserId = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  if (!userId) {
+    throw new ApiError(400, "UnAuthorized");
+  }
+
+  res.status(200).json(new ApiResponse(200, userId, "userId is fetched"));
+});
+
+///////////////////////////////////////////////////////////////////
+
+const addToWatchHistory = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+  const userId = req.user._id;
+  const video = await Video.findById(videoId);
+  if (!video) {
+    throw new ApiError(404, "Video Not Found");
+  }
+
+  // Add video to user's watchHistory
+  const user = await User.findById(userId);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  // Remove video from watchHistory if it already exists
+  await User.findByIdAndUpdate(
+    userId,
+    { $pull: { watchHistory: videoId } } // Remove the videoId from the array if it exists
+  );
+
+  // Add video to watchHistory
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { $push: { watchHistory: videoId } }, // Add the videoId to the end of the array
+    { new: true } // Return the updated document
+  ).select("watchHistory");
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, updatedUser, "User's WatchHistory Fetched"));
+});
+
+//////////////////////////////////////////////////////////////
+
+const getSubscribedVideos = asyncHandler(async (req, res) => {
+  const userId = req.user._id; // Assuming user ID is available in req.user from authentication middleware
+
+  // Fetch the current user's subscriptions
+  const user = await User.findById(userId).populate("Subscribed");
+
+  if (!user) {
+    throw new ApiError(404, "user not found");
+  }
+  // Retrieve the IDs of subscribed users
+  const subscribedUserIds = user.Subscribed.map((sub) => sub._id);
+
+  // Fetch videos from subscribed users
+  const videos = await Video.find({
+    owner: { $in: subscribedUserIds },
+  }).populate("owner", "username Subscriber avatar");
+
+  if (!videos) {
+    throw new ApiError(500, "Error in fetching videos");
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, videos, "All videos of Subscribed Channels"));
 });
 
 export {
@@ -476,4 +539,7 @@ export {
   updateCoverImage,
   getUserProfile,
   getwatchHistory,
+  getUserId,
+  addToWatchHistory,
+  getSubscribedVideos,
 };

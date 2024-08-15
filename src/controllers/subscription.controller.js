@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import User from "../models/user.model.js";
 import Subscription from "../models/subscription.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import mongoose from "mongoose";
 
 const subscribeUser = asyncHandler(async (req, res) => {
   const { userId } = req.params;
@@ -162,4 +163,88 @@ const subscribeStatus = asyncHandler(async (req, res) => {
   }
 });
 
-export { subscribeUser, unsubscribeUser, subscribeStatus };
+//////////////////////////////////////////////////////////////////////////////
+
+const getSubscribedChannels = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  // Find all subscriptions where the user is the subscriber
+  const subscriptions = await Subscription.find({
+    subscriber: new mongoose.Types.ObjectId(userId),
+  }).populate("channel", "-password -refreshToken");
+
+  // Extract the channel details from the subscriptions
+  const subscribedChannels = subscriptions.map(
+    (subscription) => subscription.channel
+  );
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, subscribedChannels, "you have subscribed them all")
+    );
+});
+///////////////////////////////////////////////////////////////////////////////////
+
+const getSubscribers = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  // Find all subscriptions where the user is the subscriber
+  const subscriptions = await Subscription.find({
+    channel: new mongoose.Types.ObjectId(userId),
+  }).populate("subscriber", "-password -refreshToken");
+
+  // Extract the channel details from the subscriptions
+  const subscriber = subscriptions.map(
+    (subscription) => subscription.subscriber
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, subscriber, "your subscriber"));
+});
+///////////////////////////////////////////////////////////////////////////////////
+
+const getSubscribedChannelsOfUser = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  // Find all subscriptions where the user is the subscriber
+  const subscriptions = await Subscription.find({
+    subscriber: new mongoose.Types.ObjectId(userId),
+  }).populate("channel", "-password -refreshToken");
+
+  // Extract the channel details from the subscriptions
+  const subscribedChannels = subscriptions.map(
+    (subscription) => subscription.channel
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, subscribedChannels, "User subscribed them all"));
+});
+
+////////////////////////////////////////////////////////////////////////////////////
+
+const getSubscribersOfUser = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  // Find all subscriptions where the user is the subscriber
+  const subscriptions = await Subscription.find({
+    channel: new mongoose.Types.ObjectId(userId),
+  }).populate("subscriber", "-password -refreshToken");
+
+  // Extract the channel details from the subscriptions
+  const subscriber = subscriptions.map(
+    (subscription) => subscription.subscriber
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, subscriber, "User subscribed them all"));
+});
+
+export {
+  subscribeUser,
+  getSubscribers,
+  unsubscribeUser,
+  subscribeStatus,
+  getSubscribedChannels,
+  getSubscribedChannelsOfUser,
+  getSubscribersOfUser,
+};

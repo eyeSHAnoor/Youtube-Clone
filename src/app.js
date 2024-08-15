@@ -40,4 +40,7 @@ app.use("/api/v1/tweet", tweetRouter);
 
 import subscriptionRoutes from "./routes/subscription.routes.js";
 app.use("/api/v1/subscription", subscriptionRoutes);
+
+import dislikeRoute from "./routes/dislike.routes.js";
+app.use("/api/v1/dislikes", dislikeRoute);
 export { app };
